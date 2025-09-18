@@ -64,22 +64,21 @@ export default function App() {
     return () => clearInterval(t)
   }, [taskId])
 
-  if (!cfg) return <div style={{ padding: 16 }}>Loading...</div>
+  const dfl = cfg?.defaults || {}
 
-  const dfl = cfg.defaults || {}
+  // Form state (initialize with safe defaults; then hydrate from cfg when it loads)
+  const [tgApiId, setTgApiId] = useState<string>('')
+  const [tgApiHash, setTgApiHash] = useState<string>('')
+  const [tgPhone, setTgPhone] = useState<string>('')
+  const [tgSession, setTgSession] = useState<string>('')
 
-  const [tgApiId, setTgApiId] = useState<string>(cfg.telegram?.api_id || '')
-  const [tgApiHash, setTgApiHash] = useState<string>(cfg.telegram?.api_hash || '')
-  const [tgPhone, setTgPhone] = useState<string>(cfg.telegram?.phone || '')
-  const [tgSession, setTgSession] = useState<string>(cfg.telegram?.session || '')
+  const [slackToken, setSlackToken] = useState<string>('')
 
-  const [slackToken, setSlackToken] = useState<string>(cfg.slack?.token || '')
-
-  const [dest, setDest] = useState<string>(dfl.destination || 'Folder (local)')
-  const [format, setFormat] = useState<string>(dfl.format || 'jsonl')
-  const [reverse, setReverse] = useState<boolean>(!!dfl.reverse)
-  const [resume, setResume] = useState<boolean>(!!dfl.resume)
-  const [only, setOnly] = useState<string>(dfl.only || 'all')
+  const [dest, setDest] = useState<string>('Folder (local)')
+  const [format, setFormat] = useState<string>('jsonl')
+  const [reverse, setReverse] = useState<boolean>(true)
+  const [resume, setResume] = useState<boolean>(true)
+  const [only, setOnly] = useState<string>('all')
   const [limit, setLimit] = useState<string>('')
   const [minDate, setMinDate] = useState('')
   const [maxDate, setMaxDate] = useState('')
@@ -87,14 +86,33 @@ export default function App() {
   const [keywords, setKeywords] = useState('')
   const [chat, setChat] = useState('')
   const [media, setMedia] = useState(false)
-  const [outFolder, setOutFolder] = useState<string>(dfl.last_output_folder || '')
-  const [filename, setFilename] = useState<string>(dfl.filename || 'messages.jsonl')
+  const [outFolder, setOutFolder] = useState<string>('')
+  const [filename, setFilename] = useState<string>('messages.jsonl')
 
-  const notionDests: any[] = cfg.notion?.destinations || []
+  const notionDests: any[] = (cfg?.notion?.destinations as any[]) || []
   const notionNames = notionDests.map((d) => d.name)
-  const [notionSel, setNotionSel] = useState<string>(notionNames[0] || '')
+  const [notionSel, setNotionSel] = useState<string>('')
   const selectedNotion = useMemo(() => notionDests.find((d) => d.name === notionSel), [notionSel, notionDests])
-  const [notionMode, setNotionMode] = useState<string>(dfl.notion_mode || 'per_message')
+  const [notionMode, setNotionMode] = useState<string>('per_message')
+
+  // Hydrate form state when cfg loads
+  useEffect(() => {
+    if (!cfg) return
+    setTgApiId(cfg.telegram?.api_id || '')
+    setTgApiHash(cfg.telegram?.api_hash || '')
+    setTgPhone(cfg.telegram?.phone || '')
+    setTgSession(cfg.telegram?.session || '')
+    setSlackToken(cfg.slack?.token || '')
+    setDest(cfg.defaults?.destination || 'Folder (local)')
+    setFormat(cfg.defaults?.format || 'jsonl')
+    setReverse(!!cfg.defaults?.reverse)
+    setResume(!!cfg.defaults?.resume)
+    setOnly(cfg.defaults?.only || 'all')
+    setOutFolder(cfg.defaults?.last_output_folder || '')
+    setFilename(cfg.defaults?.filename || 'messages.jsonl')
+    setNotionMode(cfg.defaults?.notion_mode || 'per_message')
+    if (notionNames.length && !notionSel) setNotionSel(notionNames[0])
+  }, [cfg])
 
   const fsOutPath = `${outFolder.replace(/\\+$/,'')}/${filename}`
 
@@ -216,13 +234,13 @@ export default function App() {
   }
 
   function ExtractTab() {
-    const appOptions = ['Telegram', 'Slack (coming soon)', 'Teams (coming soon)']
+    const appOptions = ['Telegram', 'Slack', 'Teams (coming soon)']
     return (
       <div>
         <Section title="Extract">
           <Row>
             <label>Chat Application:</label>
-            <Select value={cfg.app || 'Telegram'} onChange={(e) => setCfg({ ...cfg, app: e.currentTarget.value })}>
+            <Select value={(cfg?.app || 'Telegram')} onChange={(e) => setCfg({ ...(cfg || {}), app: e.currentTarget.value })}>
               {appOptions.map((o) => (
                 <option key={o} value={o}>
                   {o}
@@ -233,7 +251,7 @@ export default function App() {
           <Row>
             <label>Chat / Channel:</label>
             <TextInput value={chat} onChange={(e) => setChat(e.target.value)} placeholder="@username / link / id or #name" />
-            {(cfg.app || 'Telegram').startsWith('Slack') && (
+            {(cfg?.app || 'Telegram').startsWith('Slack') && (
               <button onClick={() => setShowSlackPicker(true)}>Pick Channel…</button>
             )}
           </Row>
@@ -427,9 +445,9 @@ export default function App() {
           </div>
         </Section>
 
-        <Row>
-          <button onClick={handleSaveSettings}>Save Settings</button>
-        </Row>
+          <Row>
+            <button onClick={handleSaveSettings}>Save Settings</button>
+          </Row>
         {showNotionPicker && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: 'white', padding: 16, borderRadius: 8, width: 720, maxHeight: 560, display: 'flex', flexDirection: 'column', gap: 8 }}>

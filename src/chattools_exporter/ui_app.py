@@ -91,7 +91,7 @@ class App(tk.Tk):
         row = 0
         ttk.Label(p, text="Chat Application:").grid(row=row, column=0, sticky="w", padx=8, pady=6)
         self.app_var = tk.StringVar(value=self.cfg.get("app", "Telegram"))
-        app_opts = ["Telegram", "Slack (coming soon)", "Teams (coming soon)"]
+        app_opts = ["Telegram", "Slack", "Teams (coming soon)"]
         self.app_combo = ttk.Combobox(p, textvariable=self.app_var, values=app_opts, state="readonly")
         self.app_combo.grid(row=row, column=1, sticky="we", padx=8, pady=6, columnspan=3)
         self.app_combo.bind("<<ComboboxSelected>>", self._on_app_change)

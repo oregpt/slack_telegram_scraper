@@ -1,6 +1,6 @@
 # ChatTools Exporter
 
-Export chat history with a simple UI. First target is Telegram (via Telethon) with optional Notion export. Slack/Teams are planned and surfaced in the UI for future expansion.
+Export chat history with a simple UI. Supports Telegram (via Telethon) with optional Notion export, and Slack (via slack_sdk). Teams is surfaced in the UI as a future target.
 
 Features:
 - Telegram export (user session) with filters: date range, only media/text, keywords, specific users, limit.

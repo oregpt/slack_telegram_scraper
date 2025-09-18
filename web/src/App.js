@@ -39,19 +39,18 @@ export default function App() {
         }, 800);
         return () => clearInterval(t);
     }, [taskId]);
-    if (!cfg)
-        return _jsx("div", { style: { padding: 16 }, children: "Loading..." });
-    const dfl = cfg.defaults || {};
-    const [tgApiId, setTgApiId] = useState(cfg.telegram?.api_id || '');
-    const [tgApiHash, setTgApiHash] = useState(cfg.telegram?.api_hash || '');
-    const [tgPhone, setTgPhone] = useState(cfg.telegram?.phone || '');
-    const [tgSession, setTgSession] = useState(cfg.telegram?.session || '');
-    const [slackToken, setSlackToken] = useState(cfg.slack?.token || '');
-    const [dest, setDest] = useState(dfl.destination || 'Folder (local)');
-    const [format, setFormat] = useState(dfl.format || 'jsonl');
-    const [reverse, setReverse] = useState(!!dfl.reverse);
-    const [resume, setResume] = useState(!!dfl.resume);
-    const [only, setOnly] = useState(dfl.only || 'all');
+    const dfl = cfg?.defaults || {};
+    // Form state (initialize with safe defaults; then hydrate from cfg when it loads)
+    const [tgApiId, setTgApiId] = useState('');
+    const [tgApiHash, setTgApiHash] = useState('');
+    const [tgPhone, setTgPhone] = useState('');
+    const [tgSession, setTgSession] = useState('');
+    const [slackToken, setSlackToken] = useState('');
+    const [dest, setDest] = useState('Folder (local)');
+    const [format, setFormat] = useState('jsonl');
+    const [reverse, setReverse] = useState(true);
+    const [resume, setResume] = useState(true);
+    const [only, setOnly] = useState('all');
     const [limit, setLimit] = useState('');
     const [minDate, setMinDate] = useState('');
     const [maxDate, setMaxDate] = useState('');
@@ -59,13 +58,33 @@ export default function App() {
     const [keywords, setKeywords] = useState('');
     const [chat, setChat] = useState('');
     const [media, setMedia] = useState(false);
-    const [outFolder, setOutFolder] = useState(dfl.last_output_folder || '');
-    const [filename, setFilename] = useState(dfl.filename || 'messages.jsonl');
-    const notionDests = cfg.notion?.destinations || [];
+    const [outFolder, setOutFolder] = useState('');
+    const [filename, setFilename] = useState('messages.jsonl');
+    const notionDests = cfg?.notion?.destinations || [];
     const notionNames = notionDests.map((d) => d.name);
-    const [notionSel, setNotionSel] = useState(notionNames[0] || '');
+    const [notionSel, setNotionSel] = useState('');
     const selectedNotion = useMemo(() => notionDests.find((d) => d.name === notionSel), [notionSel, notionDests]);
-    const [notionMode, setNotionMode] = useState(dfl.notion_mode || 'per_message');
+    const [notionMode, setNotionMode] = useState('per_message');
+    // Hydrate form state when cfg loads
+    useEffect(() => {
+        if (!cfg)
+            return;
+        setTgApiId(cfg.telegram?.api_id || '');
+        setTgApiHash(cfg.telegram?.api_hash || '');
+        setTgPhone(cfg.telegram?.phone || '');
+        setTgSession(cfg.telegram?.session || '');
+        setSlackToken(cfg.slack?.token || '');
+        setDest(cfg.defaults?.destination || 'Folder (local)');
+        setFormat(cfg.defaults?.format || 'jsonl');
+        setReverse(!!cfg.defaults?.reverse);
+        setResume(!!cfg.defaults?.resume);
+        setOnly(cfg.defaults?.only || 'all');
+        setOutFolder(cfg.defaults?.last_output_folder || '');
+        setFilename(cfg.defaults?.filename || 'messages.jsonl');
+        setNotionMode(cfg.defaults?.notion_mode || 'per_message');
+        if (notionNames.length && !notionSel)
+            setNotionSel(notionNames[0]);
+    }, [cfg]);
     const fsOutPath = `${outFolder.replace(/\\+$/, '')}/${filename}`;
     async function handleSaveSettings() {
         const next = {
@@ -193,8 +212,8 @@ export default function App() {
         }
     }
     function ExtractTab() {
-        const appOptions = ['Telegram', 'Slack (coming soon)', 'Teams (coming soon)'];
-        return (_jsxs("div", { children: [_jsxs(Section, { title: "Extract", children: [_jsxs(Row, { children: [_jsx("label", { children: "Chat Application:" }), _jsx(Select, { value: cfg.app || 'Telegram', onChange: (e) => setCfg({ ...cfg, app: e.currentTarget.value }), children: appOptions.map((o) => (_jsx("option", { value: o, children: o }, o))) })] }), _jsxs(Row, { children: [_jsx("label", { children: "Chat / Channel:" }), _jsx(TextInput, { value: chat, onChange: (e) => setChat(e.target.value), placeholder: "@username / link / id or #name" }), (cfg.app || 'Telegram').startsWith('Slack') && (_jsx("button", { onClick: () => setShowSlackPicker(true), children: "Pick Channel\u2026" }))] }), _jsxs(Row, { children: [_jsx("label", { children: "Min Date (YYYY-MM-DD):" }), _jsx(TextInput, { value: minDate, onChange: (e) => setMinDate(e.target.value), style: { width: 150 } }), _jsx("label", { children: "Max Date (YYYY-MM-DD):" }), _jsx(TextInput, { value: maxDate, onChange: (e) => setMaxDate(e.target.value), style: { width: 150 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Content:" }), _jsxs(Select, { value: only, onChange: (e) => setOnly(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { value: "all", children: "All" }), _jsx("option", { value: "media", children: "Only media" }), _jsx("option", { value: "text", children: "Only text" })] }), _jsx("label", { children: "Format:" }), _jsxs(Select, { value: format, onChange: (e) => setFormat(e.currentTarget.value), style: { width: 120 }, children: [_jsx("option", { value: "jsonl", children: "jsonl" }), _jsx("option", { value: "csv", children: "csv" })] }), _jsx("label", { children: "Limit:" }), _jsx(TextInput, { value: limit, onChange: (e) => setLimit(e.target.value), style: { width: 100 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Users (comma ids/usernames):" }), _jsx(TextInput, { value: users, onChange: (e) => setUsers(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Keywords (comma):" }), _jsx(TextInput, { value: keywords, onChange: (e) => setKeywords(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: reverse, onChange: (e) => setReverse(e.target.checked) }), " Oldest \u2192 newest"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: resume, onChange: (e) => setResume(e.target.checked) }), " Resume (JSONL)"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: media, onChange: (e) => setMedia(e.target.checked) }), " Download media"] })] }), _jsxs(Row, { children: [_jsx("label", { children: "Destination:" }), _jsxs(Select, { value: dest, onChange: (e) => setDest(e.currentTarget.value), style: { width: 220 }, children: [_jsx("option", { children: "Folder (local)" }), _jsx("option", { children: "Notion (saved destination)" })] })] }), dest.startsWith('Folder') ? (_jsxs(_Fragment, { children: [_jsxs(Row, { children: [_jsx("label", { children: "Output folder:" }), _jsx(TextInput, { value: outFolder, onChange: (e) => setOutFolder(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Filename:" }), _jsx(TextInput, { value: filename, onChange: (e) => setFilename(e.target.value), style: { width: 260 } })] })] })) : (_jsx(_Fragment, { children: _jsxs(Row, { children: [_jsx("label", { children: "Notion destination:" }), _jsxs(Select, { value: notionSel, onChange: (e) => setNotionSel(e.currentTarget.value), style: { width: 320 }, children: [notionNames.length === 0 && _jsx("option", { children: "(none saved)" }), notionNames.map((n) => (_jsx("option", { value: n, children: n }, n)))] }), _jsx("label", { children: "Mode:" }), _jsxs(Select, { value: notionMode, onChange: (e) => setNotionMode(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { value: "per_message", children: "per_message" }), _jsx("option", { value: "group_by_day", children: "group_by_day" })] }), _jsx("button", { onClick: doTestNotion, children: "Test Notion" })] }) })), _jsx(Row, { children: _jsx("button", { disabled: busy, onClick: doExtract, children: busy ? 'Starting…' : 'Extract' }) })] }), taskId && (_jsxs(Section, { title: `Task ${taskId}`, children: [_jsxs(Row, { children: [_jsxs("div", { children: ["Status: ", task?.status || 'running'] }), task?.result && _jsxs("div", { children: ["Result: ", JSON.stringify(task.result)] }), task?.error && _jsxs("div", { style: { color: 'red' }, children: ["Error: ", task.error] })] }), _jsx("div", { style: { maxHeight: 300, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, background: '#fafafa', padding: 8, border: '1px solid #eee' }, children: (task?.logs || []).map((l, i) => (_jsx("div", { children: l }, i))) })] }))] }));
+        const appOptions = ['Telegram', 'Slack', 'Teams (coming soon)'];
+        return (_jsxs("div", { children: [_jsxs(Section, { title: "Extract", children: [_jsxs(Row, { children: [_jsx("label", { children: "Chat Application:" }), _jsx(Select, { value: (cfg?.app || 'Telegram'), onChange: (e) => setCfg({ ...(cfg || {}), app: e.currentTarget.value }), children: appOptions.map((o) => (_jsx("option", { value: o, children: o }, o))) })] }), _jsxs(Row, { children: [_jsx("label", { children: "Chat / Channel:" }), _jsx(TextInput, { value: chat, onChange: (e) => setChat(e.target.value), placeholder: "@username / link / id or #name" }), (cfg?.app || 'Telegram').startsWith('Slack') && (_jsx("button", { onClick: () => setShowSlackPicker(true), children: "Pick Channel\u2026" }))] }), _jsxs(Row, { children: [_jsx("label", { children: "Min Date (YYYY-MM-DD):" }), _jsx(TextInput, { value: minDate, onChange: (e) => setMinDate(e.target.value), style: { width: 150 } }), _jsx("label", { children: "Max Date (YYYY-MM-DD):" }), _jsx(TextInput, { value: maxDate, onChange: (e) => setMaxDate(e.target.value), style: { width: 150 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Content:" }), _jsxs(Select, { value: only, onChange: (e) => setOnly(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { value: "all", children: "All" }), _jsx("option", { value: "media", children: "Only media" }), _jsx("option", { value: "text", children: "Only text" })] }), _jsx("label", { children: "Format:" }), _jsxs(Select, { value: format, onChange: (e) => setFormat(e.currentTarget.value), style: { width: 120 }, children: [_jsx("option", { value: "jsonl", children: "jsonl" }), _jsx("option", { value: "csv", children: "csv" })] }), _jsx("label", { children: "Limit:" }), _jsx(TextInput, { value: limit, onChange: (e) => setLimit(e.target.value), style: { width: 100 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Users (comma ids/usernames):" }), _jsx(TextInput, { value: users, onChange: (e) => setUsers(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Keywords (comma):" }), _jsx(TextInput, { value: keywords, onChange: (e) => setKeywords(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: reverse, onChange: (e) => setReverse(e.target.checked) }), " Oldest \u2192 newest"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: resume, onChange: (e) => setResume(e.target.checked) }), " Resume (JSONL)"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: media, onChange: (e) => setMedia(e.target.checked) }), " Download media"] })] }), _jsxs(Row, { children: [_jsx("label", { children: "Destination:" }), _jsxs(Select, { value: dest, onChange: (e) => setDest(e.currentTarget.value), style: { width: 220 }, children: [_jsx("option", { children: "Folder (local)" }), _jsx("option", { children: "Notion (saved destination)" })] })] }), dest.startsWith('Folder') ? (_jsxs(_Fragment, { children: [_jsxs(Row, { children: [_jsx("label", { children: "Output folder:" }), _jsx(TextInput, { value: outFolder, onChange: (e) => setOutFolder(e.target.value), style: { width: 420 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Filename:" }), _jsx(TextInput, { value: filename, onChange: (e) => setFilename(e.target.value), style: { width: 260 } })] })] })) : (_jsx(_Fragment, { children: _jsxs(Row, { children: [_jsx("label", { children: "Notion destination:" }), _jsxs(Select, { value: notionSel, onChange: (e) => setNotionSel(e.currentTarget.value), style: { width: 320 }, children: [notionNames.length === 0 && _jsx("option", { children: "(none saved)" }), notionNames.map((n) => (_jsx("option", { value: n, children: n }, n)))] }), _jsx("label", { children: "Mode:" }), _jsxs(Select, { value: notionMode, onChange: (e) => setNotionMode(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { value: "per_message", children: "per_message" }), _jsx("option", { value: "group_by_day", children: "group_by_day" })] }), _jsx("button", { onClick: doTestNotion, children: "Test Notion" })] }) })), _jsx(Row, { children: _jsx("button", { disabled: busy, onClick: doExtract, children: busy ? 'Starting…' : 'Extract' }) })] }), taskId && (_jsxs(Section, { title: `Task ${taskId}`, children: [_jsxs(Row, { children: [_jsxs("div", { children: ["Status: ", task?.status || 'running'] }), task?.result && _jsxs("div", { children: ["Result: ", JSON.stringify(task.result)] }), task?.error && _jsxs("div", { style: { color: 'red' }, children: ["Error: ", task.error] })] }), _jsx("div", { style: { maxHeight: 300, overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, background: '#fafafa', padding: 8, border: '1px solid #eee' }, children: (task?.logs || []).map((l, i) => (_jsx("div", { children: l }, i))) })] }))] }));
     }
     function SettingsTab() {
         const [showNotionPicker, setShowNotionPicker] = useState(false);
