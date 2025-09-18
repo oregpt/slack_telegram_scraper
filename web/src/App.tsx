@@ -42,6 +42,7 @@ export default function App() {
   const [cfg, setCfg] = useState<Cfg | null>(null)
   const [tab, setTab] = useState<'extract' | 'settings' | 'tghelp' | 'slackhelp'>('extract')
   const [busy, setBusy] = useState(false)
+  const [typing, setTyping] = useState<string | null>(null)
   const [task, setTask] = useState<TaskStatus | null>(null)
   const [taskId, setTaskId] = useState<string | null>(null)
 
@@ -113,6 +114,36 @@ export default function App() {
     setNotionMode(cfg.defaults?.notion_mode || 'per_message')
     if (notionNames.length && !notionSel) setNotionSel(notionNames[0])
   }, [cfg])
+
+  // Auto-save settings with debounce so you don't have to click Save
+  useEffect(() => {
+    if (!cfg) return
+    const t = setTimeout(async () => {
+      try {
+        const next = {
+          ...cfg,
+          telegram: { api_id: tgApiId, api_hash: tgApiHash, phone: tgPhone, session: tgSession || undefined },
+          slack: { token: slackToken },
+          defaults: {
+            ...(cfg.defaults || {}),
+            destination: dest,
+            format,
+            reverse,
+            resume,
+            only,
+            last_output_folder: outFolder,
+            filename,
+            notion_mode: notionMode,
+          },
+        }
+        await saveConfig(next)
+        setCfg(next)
+      } catch (e) {
+        // ignore transient save errors
+      }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [tgApiId, tgApiHash, tgPhone, tgSession, slackToken, dest, format, reverse, resume, only, outFolder, filename, notionMode])
 
   const fsOutPath = `${outFolder.replace(/\\+$/,'')}/${filename}`
 
@@ -399,15 +430,15 @@ export default function App() {
         <Section title="Telegram">
           <Row>
             <label>API ID:</label>
-            <TextInput value={tgApiId} onChange={(e) => setTgApiId(e.target.value)} />
+            <TextInput value={tgApiId} onChange={(e) => { setTgApiId(e.target.value); setTyping('tg') }} />
             <label>API Hash:</label>
-            <TextInput value={tgApiHash} onChange={(e) => setTgApiHash(e.target.value)} />
+            <TextInput value={tgApiHash} onChange={(e) => { setTgApiHash(e.target.value); setTyping('tg') }} />
           </Row>
           <Row>
             <label>Phone:</label>
-            <TextInput value={tgPhone} onChange={(e) => setTgPhone(e.target.value)} />
+            <TextInput value={tgPhone} onChange={(e) => { setTgPhone(e.target.value); setTyping('tg') }} />
             <label>Session (optional):</label>
-            <TextInput value={tgSession} onChange={(e) => setTgSession(e.target.value)} />
+            <TextInput value={tgSession} onChange={(e) => { setTgSession(e.target.value); setTyping('tg') }} />
           </Row>
           <Row>
             <button disabled={busy} onClick={doTgTestLogin}>Test Login</button>
@@ -417,7 +448,7 @@ export default function App() {
         <Section title="Slack">
           <Row>
             <label>Token:</label>
-            <TextInput value={slackToken} onChange={(e) => setSlackToken(e.target.value)} style={{ width: 420 }} />
+            <TextInput value={slackToken} onChange={(e) => { setSlackToken(e.target.value); setTyping('slack') }} style={{ width: 420 }} />
             <button disabled={busy} onClick={doTestSlack}>Test Slack</button>
           </Row>
         </Section>

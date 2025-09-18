@@ -17,6 +17,7 @@ export default function App() {
     const [cfg, setCfg] = useState(null);
     const [tab, setTab] = useState('extract');
     const [busy, setBusy] = useState(false);
+    const [typing, setTyping] = useState(null);
     const [task, setTask] = useState(null);
     const [taskId, setTaskId] = useState(null);
     useEffect(() => {
@@ -85,6 +86,37 @@ export default function App() {
         if (notionNames.length && !notionSel)
             setNotionSel(notionNames[0]);
     }, [cfg]);
+    // Auto-save settings with debounce so you don't have to click Save
+    useEffect(() => {
+        if (!cfg)
+            return;
+        const t = setTimeout(async () => {
+            try {
+                const next = {
+                    ...cfg,
+                    telegram: { api_id: tgApiId, api_hash: tgApiHash, phone: tgPhone, session: tgSession || undefined },
+                    slack: { token: slackToken },
+                    defaults: {
+                        ...(cfg.defaults || {}),
+                        destination: dest,
+                        format,
+                        reverse,
+                        resume,
+                        only,
+                        last_output_folder: outFolder,
+                        filename,
+                        notion_mode: notionMode,
+                    },
+                };
+                await saveConfig(next);
+                setCfg(next);
+            }
+            catch (e) {
+                // ignore transient save errors
+            }
+        }, 500);
+        return () => clearTimeout(t);
+    }, [tgApiId, tgApiHash, tgPhone, tgSession, slackToken, dest, format, reverse, resume, only, outFolder, filename, notionMode]);
     const fsOutPath = `${outFolder.replace(/\\+$/, '')}/${filename}`;
     async function handleSaveSettings() {
         const next = {
@@ -247,7 +279,7 @@ export default function App() {
             const res = await searchNotion(nKey, searchQ || '');
             setSearchResults(res.results);
         }
-        return (_jsxs("div", { children: [_jsxs(Section, { title: "Telegram", children: [_jsxs(Row, { children: [_jsx("label", { children: "API ID:" }), _jsx(TextInput, { value: tgApiId, onChange: (e) => setTgApiId(e.target.value) }), _jsx("label", { children: "API Hash:" }), _jsx(TextInput, { value: tgApiHash, onChange: (e) => setTgApiHash(e.target.value) })] }), _jsxs(Row, { children: [_jsx("label", { children: "Phone:" }), _jsx(TextInput, { value: tgPhone, onChange: (e) => setTgPhone(e.target.value) }), _jsx("label", { children: "Session (optional):" }), _jsx(TextInput, { value: tgSession, onChange: (e) => setTgSession(e.target.value) })] }), _jsx(Row, { children: _jsx("button", { disabled: busy, onClick: doTgTestLogin, children: "Test Login" }) })] }), _jsx(Section, { title: "Slack", children: _jsxs(Row, { children: [_jsx("label", { children: "Token:" }), _jsx(TextInput, { value: slackToken, onChange: (e) => setSlackToken(e.target.value), style: { width: 420 } }), _jsx("button", { disabled: busy, onClick: doTestSlack, children: "Test Slack" })] }) }), _jsxs(Section, { title: "Notion Destinations", children: [_jsxs(Row, { children: [_jsx("label", { children: "Name:" }), _jsx(TextInput, { value: nName, onChange: (e) => setNName(e.target.value) }), _jsx("label", { children: "API Key:" }), _jsx(TextInput, { value: nKey, onChange: (e) => setNKey(e.target.value), style: { width: 340 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Type:" }), _jsxs(Select, { value: nType, onChange: (e) => setNType(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { children: "Database" }), _jsx("option", { children: "Page" })] }), _jsx("label", { children: "Parent ID:" }), _jsx(TextInput, { value: nParent, onChange: (e) => setNParent(e.target.value), style: { width: 360 } }), _jsx("button", { onClick: openNotionPicker, children: "Pick Parent\u2026" }), _jsx("button", { onClick: addOrUpdateNotion, children: "Save Destination" })] }), _jsxs("div", { children: ["Saved: ", notionDests.length ? notionDests.map((d) => d.name).join(', ') : '(none)'] })] }), _jsx(Row, { children: _jsx("button", { onClick: handleSaveSettings, children: "Save Settings" }) }), showNotionPicker && (_jsx("div", { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: _jsxs("div", { style: { background: 'white', padding: 16, borderRadius: 8, width: 720, maxHeight: 560, display: 'flex', flexDirection: 'column', gap: 8 }, children: [_jsx("div", { style: { fontWeight: 600 }, children: "Pick Notion Parent" }), _jsxs("div", { style: { display: 'flex', gap: 8 }, children: [_jsx(TextInput, { value: searchQ, onChange: (e) => setSearchQ(e.target.value), placeholder: "Search pages/databases by title", style: { width: 480 } }), _jsx("button", { onClick: runNotionSearch, children: "Search" })] }), _jsx("div", { style: { overflow: 'auto', border: '1px solid #eee', flex: 1 }, children: searchResults.map((r) => (_jsxs("div", { style: { padding: 6, borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8, alignItems: 'center' }, children: [_jsx("span", { style: { width: 88, color: '#555' }, children: r.type }), _jsx("span", { style: { flex: 1 }, children: r.title }), _jsx("code", { style: { color: '#999' }, children: r.id }), _jsx("span", { style: { marginLeft: 'auto' }, children: _jsx("button", { onClick: () => { setNType(r.type); setNParent(r.id); setShowNotionPicker(false); }, children: "Use" }) })] }, r.id))) }), _jsx("div", { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 }, children: _jsx("button", { onClick: () => setShowNotionPicker(false), children: "Close" }) })] }) }))] }));
+        return (_jsxs("div", { children: [_jsxs(Section, { title: "Telegram", children: [_jsxs(Row, { children: [_jsx("label", { children: "API ID:" }), _jsx(TextInput, { value: tgApiId, onChange: (e) => { setTgApiId(e.target.value); setTyping('tg'); } }), _jsx("label", { children: "API Hash:" }), _jsx(TextInput, { value: tgApiHash, onChange: (e) => { setTgApiHash(e.target.value); setTyping('tg'); } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Phone:" }), _jsx(TextInput, { value: tgPhone, onChange: (e) => { setTgPhone(e.target.value); setTyping('tg'); } }), _jsx("label", { children: "Session (optional):" }), _jsx(TextInput, { value: tgSession, onChange: (e) => { setTgSession(e.target.value); setTyping('tg'); } })] }), _jsx(Row, { children: _jsx("button", { disabled: busy, onClick: doTgTestLogin, children: "Test Login" }) })] }), _jsx(Section, { title: "Slack", children: _jsxs(Row, { children: [_jsx("label", { children: "Token:" }), _jsx(TextInput, { value: slackToken, onChange: (e) => { setSlackToken(e.target.value); setTyping('slack'); }, style: { width: 420 } }), _jsx("button", { disabled: busy, onClick: doTestSlack, children: "Test Slack" })] }) }), _jsxs(Section, { title: "Notion Destinations", children: [_jsxs(Row, { children: [_jsx("label", { children: "Name:" }), _jsx(TextInput, { value: nName, onChange: (e) => setNName(e.target.value) }), _jsx("label", { children: "API Key:" }), _jsx(TextInput, { value: nKey, onChange: (e) => setNKey(e.target.value), style: { width: 340 } })] }), _jsxs(Row, { children: [_jsx("label", { children: "Type:" }), _jsxs(Select, { value: nType, onChange: (e) => setNType(e.currentTarget.value), style: { width: 160 }, children: [_jsx("option", { children: "Database" }), _jsx("option", { children: "Page" })] }), _jsx("label", { children: "Parent ID:" }), _jsx(TextInput, { value: nParent, onChange: (e) => setNParent(e.target.value), style: { width: 360 } }), _jsx("button", { onClick: openNotionPicker, children: "Pick Parent\u2026" }), _jsx("button", { onClick: addOrUpdateNotion, children: "Save Destination" })] }), _jsxs("div", { children: ["Saved: ", notionDests.length ? notionDests.map((d) => d.name).join(', ') : '(none)'] })] }), _jsx(Row, { children: _jsx("button", { onClick: handleSaveSettings, children: "Save Settings" }) }), showNotionPicker && (_jsx("div", { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: _jsxs("div", { style: { background: 'white', padding: 16, borderRadius: 8, width: 720, maxHeight: 560, display: 'flex', flexDirection: 'column', gap: 8 }, children: [_jsx("div", { style: { fontWeight: 600 }, children: "Pick Notion Parent" }), _jsxs("div", { style: { display: 'flex', gap: 8 }, children: [_jsx(TextInput, { value: searchQ, onChange: (e) => setSearchQ(e.target.value), placeholder: "Search pages/databases by title", style: { width: 480 } }), _jsx("button", { onClick: runNotionSearch, children: "Search" })] }), _jsx("div", { style: { overflow: 'auto', border: '1px solid #eee', flex: 1 }, children: searchResults.map((r) => (_jsxs("div", { style: { padding: 6, borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8, alignItems: 'center' }, children: [_jsx("span", { style: { width: 88, color: '#555' }, children: r.type }), _jsx("span", { style: { flex: 1 }, children: r.title }), _jsx("code", { style: { color: '#999' }, children: r.id }), _jsx("span", { style: { marginLeft: 'auto' }, children: _jsx("button", { onClick: () => { setNType(r.type); setNParent(r.id); setShowNotionPicker(false); }, children: "Use" }) })] }, r.id))) }), _jsx("div", { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 }, children: _jsx("button", { onClick: () => setShowNotionPicker(false), children: "Close" }) })] }) }))] }));
     }
     // Slack Channel Picker overlay
     const [showSlackPicker, setShowSlackPicker] = useState(false);
