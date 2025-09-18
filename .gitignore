@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Telethon session
+*.session*
+
+# Outputs
+export*/
+media*/
+*.jsonl
+*.csv
+
+# Web
+web/node_modules/
+web/dist/
