@@ -45,6 +45,13 @@ Notes:
 - Slack channel picker: use the Extract tab, choose Slack, click "Pick Channel…" and search; choose by `#name` or by ID.
 - Notion parent picker: in Settings → Notion Destinations, enter your API key then "Pick Parent…" to search pages/databases and set Type + Parent ID.
 
+### One‑click launcher
+
+- Start everything and open browser:
+  - Double‑click `start_app.cmd` (or run `./start_app.ps1 -Port 8000`)
+- Stop the background server:
+  - Double‑click `stop_app.cmd` (or run `./stop_app.ps1`)
+
 ## Prerequisites
 - Python 3.9+ installed (`py -3 --version` on Windows)
 - Telegram API credentials (`api_id`, `api_hash`): https://my.telegram.org
