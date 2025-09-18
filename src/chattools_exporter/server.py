@@ -17,6 +17,7 @@ import threading
 
 from .export_telegram import export_messages as tg_export
 from .export_slack import export_slack_messages as slack_export, test_slack_token
+from .export_discord import export_discord_messages as discord_export
 from .notion_writer import notion_sink, test_connection as notion_test
 
 try:
@@ -146,6 +147,37 @@ class SlackChannelsRequest(BaseModel):
     token: str
     query: Optional[str] = None
     limit: int = 500
+
+
+class DiscordTestRequest(BaseModel):
+    token: str
+
+
+class DiscordChannelsRequest(BaseModel):
+    token: str
+    guild_id: str
+    query: Optional[str] = None
+
+
+class DiscordExtractRequest(BaseModel):
+    token: str
+    channel: str  # channel id or URL
+    out: Optional[str] = None
+    format: Optional[str] = None
+    reverse: bool = True
+    resume: bool = True
+    limit: Optional[int] = None
+    media_dir: Optional[str] = None
+    min_date: Optional[str] = None
+    max_date: Optional[str] = None
+    only_media: bool = False
+    only_text: bool = False
+    keywords: Optional[list[str]] = None
+    users: Optional[list[str]] = None
+    notion_api_key: Optional[str] = None
+    notion_dest_type: Optional[str] = None
+    notion_parent_id: Optional[str] = None
+    notion_mode: Optional[str] = Field(default="per_message")
 
 
 class TaskState:
@@ -549,6 +581,156 @@ def slack_channels(req: SlackChannelsRequest):
         if not cursor:
             break
     return {"results": items}
+
+
+@app.post("/api/discord/test")
+def discord_test(req: DiscordTestRequest):
+    # GET /users/@me with bot token
+    import requests
+    r = requests.get("https://discord.com/api/v10/users/@me", headers={"Authorization": f"Bot {req.token}", "User-Agent": "ChatTools-Exporter"}, timeout=20)
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Discord API error: {r.status_code} {r.text}")
+    u = r.json() or {}
+    return {"ok": True, "bot_id": u.get("id"), "username": u.get("username")}
+
+
+@app.post("/api/discord/channels")
+def discord_channels(req: DiscordChannelsRequest):
+    import requests
+    r = requests.get(f"https://discord.com/api/v10/guilds/{req.guild_id}/channels", headers={"Authorization": f"Bot {req.token}", "User-Agent": "ChatTools-Exporter"}, timeout=30)
+    if r.status_code == 403:
+        raise HTTPException(status_code=403, detail="Forbidden: bot likely missing permissions or not in guild")
+    if r.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Discord API error: {r.status_code} {r.text}")
+    chans = r.json() or []
+    items = []
+    q = (req.query or '').lower()
+    for c in chans:
+        # type 0 = text channel
+        if c.get('type') == 0:
+            name = c.get('name') or ''
+            if not q or q in name.lower():
+                items.append({"id": c.get('id'), "name": name})
+    return {"results": items}
+
+
+@app.post("/api/discord/extract")
+def discord_extract(req: DiscordExtractRequest):
+    out_fmt = req.format
+    out_path = req.out
+    sink = None
+    if req.notion_api_key and req.notion_parent_id and req.notion_dest_type:
+        sink = notion_sink(req.notion_api_key, req.notion_dest_type, req.notion_parent_id, mode=(req.notion_mode or "per_message"), on_progress=None)
+        if not out_fmt:
+            out_fmt = "jsonl"
+        if not out_path:
+            out_path = os.path.join(APP_DIR, "_notion_sink_discord.jsonl")
+    if not sink:
+        if not out_path:
+            raise HTTPException(status_code=400, detail="Missing 'out' path for filesystem export")
+        if not out_fmt:
+            ext = os.path.splitext(out_path)[1].lower()
+            if ext == ".jsonl":
+                out_fmt = "jsonl"
+            elif ext == ".csv":
+                out_fmt = "csv"
+            else:
+                raise HTTPException(status_code=400, detail="Provide 'format' or use .jsonl/.csv extension")
+
+    task_id = str(uuid.uuid4())
+    task = TaskState()
+    tasks[task_id] = task
+
+    def runner():
+        if sink is None:
+            # Use subprocess CLI for file exports
+            cmd = [sys.executable, '-m', 'chattools_exporter.export_discord',
+                   '--token', req.token, '--channel', req.channel,
+                   '--out', out_path]
+            if out_fmt:
+                cmd += ['--format', out_fmt]
+            if req.reverse:
+                cmd += ['--reverse']
+            if req.resume:
+                cmd += ['--resume']
+            if req.limit:
+                cmd += ['--limit', str(req.limit)]
+            if req.media_dir:
+                cmd += ['--media-dir', req.media_dir]
+            if req.min_date:
+                cmd += ['--min-date', req.min_date]
+            if req.max_date:
+                cmd += ['--max-date', req.max_date]
+            if req.only_media:
+                cmd += ['--only-media']
+            if req.only_text:
+                cmd += ['--only-text']
+            if req.keywords:
+                cmd += ['--keywords', ','.join(req.keywords)]
+            if req.users:
+                cmd += ['--users', ','.join(req.users)]
+            try:
+                task.log('Starting Discord export...')
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                while True:
+                    line = proc.stderr.readline()
+                    if line:
+                        task.log(line.strip())
+                    if proc.poll() is not None:
+                        for rem in proc.stderr.readlines():
+                            task.log(rem.strip())
+                        break
+                rc = proc.returncode
+                if rc != 0:
+                    task.error = f"Exporter exited with code {rc}"
+                    task.status = 'error'
+                else:
+                    task.result = {"messages": None}
+                    task.status = 'done'
+            except Exception as e:
+                task.error = str(e)
+                task.status = 'error'
+            finally:
+                task.finished_at = time.time()
+            return
+
+        # Notion sink path (in-process)
+        def on_progress(msg: str):
+            task.log(msg)
+        try:
+            count = discord_export(
+                token=req.token,
+                channel=req.channel,
+                out_path=out_path,
+                out_fmt=out_fmt,
+                reverse=req.reverse,
+                resume=req.resume,
+                limit=req.limit,
+                media_dir=req.media_dir,
+                min_date=req.min_date,
+                max_date=req.max_date,
+                only_media=req.only_media,
+                only_text=req.only_text,
+                keywords=req.keywords or [],
+                users=req.users or [],
+                on_progress=on_progress,
+                sink=sink,
+            )
+            if sink and hasattr(sink, 'finalize'):
+                try:
+                    sink.finalize(chat_title=None)
+                except Exception as e:
+                    task.log(f"Notion finalize error: {e}")
+            task.result = {"messages": count}
+            task.status = 'done'
+        except Exception as e:
+            task.error = str(e)
+            task.status = 'error'
+        finally:
+            task.finished_at = time.time()
+
+    threading.Thread(target=runner, daemon=True).start()
+    return {"task_id": task_id}
 
 
 # Convenience for `python -m chattools_exporter.server`

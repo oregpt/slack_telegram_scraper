@@ -49,3 +49,16 @@ export async function listSlackChannels(token, query, limit = 500) {
     const { data } = await api.post('/api/slack/channels', { token, query, limit });
     return data;
 }
+// Discord
+export async function testDiscord(token) {
+    const { data } = await api.post('/api/discord/test', { token });
+    return data;
+}
+export async function listDiscordChannels(token, guild_id, query) {
+    const { data } = await api.post('/api/discord/channels', { token, guild_id, query });
+    return data;
+}
+export async function startDiscordExport(payload) {
+    const { data } = await api.post('/api/discord/extract', payload);
+    return data;
+}

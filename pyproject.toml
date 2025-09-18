@@ -27,6 +27,7 @@ Repository = "https://github.com/oregpt/chattools-exporter"
 chattools-exporter = "chattools_exporter.export_telegram:main"
 chattools-exporter-ui = "chattools_exporter.ui_app:main"
 chattools-exporter-slack = "chattools_exporter.export_slack:main"
+chattools-exporter-discord = "chattools_exporter.export_discord:main"
 chattools-exporter-server = "chattools_exporter.server:main"
 
 [tool.hatch.build]

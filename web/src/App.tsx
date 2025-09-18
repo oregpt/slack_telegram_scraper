@@ -6,13 +6,16 @@ import {
   saveConfig,
   startSlackExport,
   startTelegramExport,
+  startDiscordExport,
   testNotion,
   testSlack,
+  testDiscord,
   tgLoginComplete,
   tgLoginStart,
   TaskStatus,
   searchNotion,
   listSlackChannels,
+  listDiscordChannels,
 } from './api'
 
 type Cfg = any
@@ -145,6 +148,35 @@ export default function App() {
     return () => clearTimeout(t)
   }, [tgApiId, tgApiHash, tgPhone, tgSession, slackToken, dest, format, reverse, resume, only, outFolder, filename, notionMode])
 
+  // Discord state
+  const [discordToken, setDiscordToken] = useState<string>('')
+  const [discordGuild, setDiscordGuild] = useState<string>('')
+  const [showDiscordPicker, setShowDiscordPicker] = useState(false)
+  const [discordSearchQ, setDiscordSearchQ] = useState('')
+  const [discordResults, setDiscordResults] = useState<{ id: string; name: string }[]>([])
+
+  async function doTestDiscord() {
+    setBusy(true)
+    try {
+      const res = await testDiscord(discordToken)
+      alert(`Bot OK: ${res.username} (${res.bot_id})`)
+    } catch (e: any) {
+      alert('Discord error: ' + (e?.response?.data?.detail || e.message || e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function runDiscordSearch() {
+    try {
+      if (!discordGuild) return alert('Enter a Guild ID')
+      const res = await listDiscordChannels(discordToken, discordGuild, discordSearchQ)
+      setDiscordResults(res.results)
+    } catch (e: any) {
+      alert('Discord search error: ' + (e?.response?.data?.detail || e.message || e))
+    }
+  }
+
   const fsOutPath = `${outFolder.replace(/\\+$/,'')}/${filename}`
 
   async function handleSaveSettings() {
@@ -238,22 +270,42 @@ export default function App() {
         }
         start = startTelegramExport(payload)
       } else {
-        const payload: any = {
-          token: slackToken,
-          channel: chat,
-          media_dir: media ? (outFolder + '/media') : undefined,
-          ...common,
-        }
-        if (dest.startsWith('Notion') && selectedNotion) {
-          payload.notion_api_key = selectedNotion.api_key
-          payload.notion_dest_type = selectedNotion.type
-          payload.notion_parent_id = selectedNotion.parent_id
-          payload.notion_mode = notionMode
+        // Slack path (else Discord)
+        if ((cfg.app || 'Telegram').startsWith('Slack')) {
+          const payload: any = {
+            token: slackToken,
+            channel: chat,
+            media_dir: media ? (outFolder + '/media') : undefined,
+            ...common,
+          }
+          if (dest.startsWith('Notion') && selectedNotion) {
+            payload.notion_api_key = selectedNotion.api_key
+            payload.notion_dest_type = selectedNotion.type
+            payload.notion_parent_id = selectedNotion.parent_id
+            payload.notion_mode = notionMode
+          } else {
+            payload.out = fsOutPath
+            payload.format = format
+          }
+          start = startSlackExport(payload)
         } else {
-          payload.out = fsOutPath
-          payload.format = format
+          const payload: any = {
+            token: discordToken,
+            channel: chat,
+            media_dir: media ? (outFolder + '/media') : undefined,
+            ...common,
+          }
+          if (dest.startsWith('Notion') && selectedNotion) {
+            payload.notion_api_key = selectedNotion.api_key
+            payload.notion_dest_type = selectedNotion.type
+            payload.notion_parent_id = selectedNotion.parent_id
+            payload.notion_mode = notionMode
+          } else {
+            payload.out = fsOutPath
+            payload.format = format
+          }
+          start = startDiscordExport(payload)
         }
-        start = startSlackExport(payload)
       }
       const { task_id } = await start!
       setTaskId(task_id)
@@ -265,7 +317,7 @@ export default function App() {
   }
 
   function ExtractTab() {
-    const appOptions = ['Telegram', 'Slack', 'Teams (coming soon)']
+    const appOptions = ['Telegram', 'Slack', 'Discord', 'Teams (coming soon)']
     return (
       <div>
         <Section title="Extract">
@@ -281,11 +333,20 @@ export default function App() {
           </Row>
           <Row>
             <label>Chat / Channel:</label>
-            <TextInput value={chat} onChange={(e) => setChat(e.target.value)} placeholder="@username / link / id or #name" />
+            <TextInput value={chat} onChange={(e) => setChat(e.target.value)} placeholder="@username / link / id / URL" />
             {(cfg?.app || 'Telegram').startsWith('Slack') && (
               <button onClick={() => setShowSlackPicker(true)}>Pick Channel…</button>
             )}
+            {(cfg?.app || 'Telegram').startsWith('Discord') && (
+              <button onClick={() => setShowDiscordPicker(true)}>Pick Channel…</button>
+            )}
           </Row>
+          {(cfg?.app || 'Telegram').startsWith('Discord') && (
+            <Row>
+              <label>Guild ID:</label>
+              <TextInput value={discordGuild} onChange={(e) => setDiscordGuild(e.target.value)} style={{ width: 260 }} />
+            </Row>
+          )}
           <Row>
             <label>Min Date (YYYY-MM-DD):</label>
             <TextInput value={minDate} onChange={(e) => setMinDate(e.target.value)} style={{ width: 150 }} />
@@ -453,6 +514,14 @@ export default function App() {
           </Row>
         </Section>
 
+        <Section title="Discord">
+          <Row>
+            <label>Bot Token:</label>
+            <TextInput value={discordToken} onChange={(e) => { setDiscordToken(e.target.value); setTyping('discord') }} style={{ width: 420 }} />
+            <button disabled={busy} onClick={doTestDiscord}>Test Discord</button>
+          </Row>
+        </Section>
+
         <Section title="Notion Destinations">
           <Row>
             <label>Name:</label>
@@ -578,6 +647,34 @@ Slack Setup
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setShowSlackPicker(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discord Picker */}
+      {showDiscordPicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', padding: 16, borderRadius: 8, width: 600, maxHeight: 520, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontWeight: 600 }}>Pick Discord Channel</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <TextInput value={discordGuild} onChange={(e) => setDiscordGuild(e.target.value)} placeholder="Guild ID" style={{ width: 220 }} />
+              <TextInput value={discordSearchQ} onChange={(e) => setDiscordSearchQ(e.target.value)} placeholder="Search by name (optional)" style={{ width: 260 }} />
+              <button onClick={runDiscordSearch}>Search</button>
+            </div>
+            <div style={{ overflow: 'auto', border: '1px solid #eee', flex: 1 }}>
+              {discordResults.map((c) => (
+                <div key={c.id} style={{ padding: 6, borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span>#{c.name}</span>
+                  <span style={{ color: '#999' }}>({c.id})</span>
+                  <span style={{ marginLeft: 'auto' }}>
+                    <button onClick={() => { setChat(c.id); setShowDiscordPicker(false) }}>Use ID</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowDiscordPicker(false)}>Close</button>
             </div>
           </div>
         </div>

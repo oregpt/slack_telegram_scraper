@@ -76,3 +76,19 @@ export async function listSlackChannels(token: string, query?: string, limit: nu
   const { data } = await api.post('/api/slack/channels', { token, query, limit })
   return data as { results: { id: string; name: string; is_private: boolean }[] }
 }
+
+// Discord
+export async function testDiscord(token: string) {
+  const { data } = await api.post('/api/discord/test', { token })
+  return data
+}
+
+export async function listDiscordChannels(token: string, guild_id: string, query?: string) {
+  const { data } = await api.post('/api/discord/channels', { token, guild_id, query })
+  return data as { results: { id: string; name: string }[] }
+}
+
+export async function startDiscordExport(payload: any) {
+  const { data } = await api.post('/api/discord/extract', payload)
+  return data as { task_id: string }
+}
