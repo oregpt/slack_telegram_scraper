@@ -1,0 +1,25 @@
+{
+  "app": "Telegram",
+  "telegram": {
+    "api_id": "",
+    "api_hash": "",
+    "phone": "",
+    "session": "C:\\Users\\oreph\\Documents\\SCRAPPING TOOLS\\chattools-exporter\\src\\chattools_exporter\\tg_export.session"
+  },
+  "slack": {
+    "token": ""
+  },
+  "notion": {
+    "destinations": []
+  },
+  "defaults": {
+    "reverse": true,
+    "resume": true,
+    "format": "jsonl",
+    "only": "all",
+    "last_output_folder": "C:\\Users\\oreph\\Documents\\SCRAPPING TOOLS\\chattools-exporter\\src\\chattools_exporter",
+    "filename": "messages.jsonl",
+    "destination": "Folder (local)",
+    "notion_mode": "per_message"
+  }
+}
