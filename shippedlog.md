@@ -30,3 +30,10 @@ Next up:
 - Optional: Slack auto‑join public channels when `channels:join` is present.
 - Optional: serve SPA also at `/` in addition to `/app`.
 
+## 2025-09-19T07:54:11Z
+
+Next TODO:
+- Discord: run E2E export with provided bot token, target guild, and channel (JSONL, limit 100) and validate output.
+- Optional: add Discord media download toggle in UI (already supported in exporter).
+- Optional: add SSE/WebSocket task logs for real-time streaming.
+
